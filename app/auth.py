@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status
 from . import models, schemas
 from .dependencies import get_db
+from fastapi.security import OAuth2PasswordBearer
 from dotenv import load_dotenv
 import os
 
@@ -43,10 +44,6 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
-
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
-from .dependencies import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 

@@ -1,13 +1,14 @@
 # app/schemas.py
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, constr
 from datetime import date
+from typing import List
 
 class UserCreate(BaseModel):
     name: str
     username: str
     email: EmailStr
-    password: str
+    password: constr(min_length=6)  # Password minimal 6 karakter
     role: int
     disease: str
     date_of_birth: date
@@ -34,3 +35,19 @@ class Token(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+# Skema untuk membuat postingan
+class PostCreate(BaseModel):
+    title: str
+    content: str
+    published: bool = True
+
+class PostResponse(BaseModel):
+    id: int
+    title: str
+    content: str
+    published: bool
+    owner_id: int
+
+    class Config:
+        orm_mode = True
