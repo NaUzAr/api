@@ -13,20 +13,23 @@ import os
 
 load_dotenv()
 
-# Konfigurasi hashing
+# Konfigurasi hashing password
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Secret key untuk JWT
+# Konfigurasi JWT
 SECRET_KEY = os.getenv("SECRET_KEY")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
+# Fungsi untuk meng-hash password
 def get_password_hash(password):
     return pwd_context.hash(password)
 
+# Fungsi untuk memverifikasi password
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
+# Fungsi untuk mengautentikasi pengguna
 def authenticate_user(db: Session, username: str, password: str):
     user = db.query(models.User).filter(models.User.username == username).first()
     if not user:
@@ -35,6 +38,7 @@ def authenticate_user(db: Session, username: str, password: str):
         return False
     return user
 
+# Fungsi untuk membuat access token
 def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     if expires_delta:
@@ -45,8 +49,10 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+# OAuth2 scheme
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
+# Fungsi untuk mendapatkan pengguna saat ini
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

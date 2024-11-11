@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, constr
 from datetime import date
 from typing import List
 
+# Skema untuk membuat pengguna baru
 class UserCreate(BaseModel):
     name: str
     username: str
@@ -14,6 +15,7 @@ class UserCreate(BaseModel):
     date_of_birth: date
     place_of_birth: str
 
+# Skema untuk respon pengguna
 class UserResponse(BaseModel):
     id: int
     name: str
@@ -27,21 +29,23 @@ class UserResponse(BaseModel):
     class Config:
         orm_mode = True
 
+# Skema untuk autentikasi token
 class Token(BaseModel):
     access_token: str
     token_type: str
 
-# Skema untuk login menggunakan JSON
+# Skema untuk permintaan login menggunakan JSON
 class LoginRequest(BaseModel):
     username: str
     password: str
 
-# Skema untuk membuat postingan
+# Skema untuk membuat postingan baru
 class PostCreate(BaseModel):
     title: str
     content: str
     published: bool = True
 
+# Skema untuk respon postingan
 class PostResponse(BaseModel):
     id: int
     title: str
