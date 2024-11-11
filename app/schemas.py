@@ -39,8 +39,9 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
-# Skema untuk membuat postingan baru
-class PostCreate(BaseModel):
+# Skema untuk membuat postingan baru dengan token di body
+class PostCreateWithToken(BaseModel):
+    access_token: str
     title: str
     content: str
     published: bool = True

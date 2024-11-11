@@ -66,7 +66,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
     return new_user
 
-# Endpoint Login menggunakan OAuth2 Password Request Form (default)
+# Endpoint Login menggunakan OAuth2 Password Request Form (tidak digunakan dalam pendekatan ini)
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = auth.authenticate_user(db, form_data.username, form_data.password)
@@ -98,9 +98,9 @@ def login_user_json(login: schemas.LoginRequest, db: Session = Depends(get_db)):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-# Endpoint POST Terproteksi: Membuat Postingan Baru
+# Endpoint POST Terproteksi: Membuat Postingan Baru dengan Token dalam Body JSON
 @app.post("/posts/", response_model=schemas.PostResponse, status_code=status.HTTP_201_CREATED)
-def create_post(post: schemas.PostCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+def create_post(post: schemas.PostCreateWithToken, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user_body)):
     new_post = models.Post(
         title=post.title,
         content=post.content,
@@ -112,54 +112,7 @@ def create_post(post: schemas.PostCreate, db: Session = Depends(get_db), current
     db.refresh(new_post)
     return new_post
 
-# Endpoint GET Terproteksi: Mendapatkan Semua Postingan Pengguna Saat Ini
-@app.get("/posts/me", response_model=List[schemas.PostResponse])
-def get_my_posts(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    posts = db.query(models.Post).filter(models.Post.owner_id == current_user.id).all()
-    return posts
-
-# Endpoint GET Terproteksi: Mendapatkan Data Pengguna Saat Ini
-@app.get("/users/me", response_model=schemas.UserResponse)
-def read_users_me(current_user: models.User = Depends(auth.get_current_user)):
+# Endpoint GET Terproteksi: Mendapatkan Data Pengguna Saat Ini dengan Token dalam Body JSON
+@app.post("/users/me/", response_model=schemas.UserResponse)
+def read_users_me(request: schemas.PostCreateWithToken, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user_body)):
     return current_user
-
-# Endpoint GET Terproteksi: Mendapatkan Data Pengguna Berdasarkan ID
-@app.get("/users/{user_id}", response_model=schemas.UserResponse)
-def read_user(user_id: int, current_user: models.User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if user is None:
-        raise HTTPException(status_code=404, detail="User tidak ditemukan")
-    return user
-
-# Endpoint PUT Terproteksi: Mengupdate Postingan
-@app.put("/posts/{post_id}", response_model=schemas.PostResponse)
-def update_post(post_id: int, updated_post: schemas.PostCreate, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    post_query = db.query(models.Post).filter(models.Post.id == post_id)
-    post = post_query.first()
-
-    if post is None:
-        raise HTTPException(status_code=404, detail="Post tidak ditemukan")
-    
-    if post.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Tidak diizinkan mengupdate postingan orang lain")
-    
-    post_query.update(updated_post.dict(), synchronize_session=False)
-    db.commit()
-    db.refresh(post)
-    return post
-
-# Endpoint DELETE Terproteksi: Menghapus Postingan
-@app.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(post_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    post_query = db.query(models.Post).filter(models.Post.id == post_id)
-    post = post_query.first()
-
-    if post is None:
-        raise HTTPException(status_code=404, detail="Post tidak ditemukan")
-    
-    if post.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Tidak diizinkan menghapus postingan orang lain")
-    
-    post_query.delete(synchronize_session=False)
-    db.commit()
-    return
