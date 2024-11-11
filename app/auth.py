@@ -7,12 +7,16 @@ from sqlalchemy.orm import Session
 from fastapi import Depends, HTTPException, status
 from . import models, schemas
 from .dependencies import get_db
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Konfigurasi hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Secret key untuk JWT
-SECRET_KEY = "your_secret_key"
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 

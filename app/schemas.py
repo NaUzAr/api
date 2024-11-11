@@ -29,3 +29,8 @@ class UserResponse(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+# Skema untuk login menggunakan JSON
+class LoginRequest(BaseModel):
+    username: str
+    password: str

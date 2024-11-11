@@ -1,19 +1,21 @@
+# app/main.py
+
 from fastapi import FastAPI, Depends, HTTPException, status
 from . import models, schemas, auth
 from .database import engine
 from sqlalchemy.orm import Session
 from .dependencies import get_db
 from fastapi.security import OAuth2PasswordRequestForm
-from datetime import timedelta  # Added import
+from datetime import timedelta
 
-# Create all tables in the database
+# Buat semua tabel di database
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="User Management API")
 
 @app.post("/register/", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    # Check if username or email already exists
+    # Cek apakah username atau email sudah ada
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username sudah terdaftar")
@@ -24,7 +26,7 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     # Hash password
     hashed_password = auth.get_password_hash(user.password)
     
-    # Create new user
+    # Buat pengguna baru
     new_user = models.User(
         name=user.name,
         username=user.username,
@@ -40,9 +42,26 @@ def register_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.refresh(new_user)
     return new_user
 
+# Endpoint login menggunakan form data (default)
 @app.post("/token", response_model=schemas.Token)
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = auth.authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Username atau password salah",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=auth.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth.create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# Endpoint login menggunakan JSON
+@app.post("/login/", response_model=schemas.Token)
+def login_user(login: schemas.LoginRequest, db: Session = Depends(get_db)):
+    user = auth.authenticate_user(db, login.username, login.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
