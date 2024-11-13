@@ -1,8 +1,9 @@
 # app/models.py
 
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Date
+from sqlalchemy import Column, Integer, String, ForeignKey, Date, DateTime
 from sqlalchemy.orm import relationship
 from .database import Base
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -12,20 +13,39 @@ class User(Base):
     username = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(Integer, nullable=False)
-    disease = Column(String, nullable=False)
-    date_of_birth = Column(Date, nullable=False)
-    place_of_birth = Column(String, nullable=False)
+    role = Column(String, nullable=False)  # Pastikan tipe data ini VARCHAR
+    disease = Column(String, nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    place_of_birth = Column(String, nullable=True)
 
-    posts = relationship("Post", back_populates="owner", cascade="all, delete")
+    data_entries = relationship("DataEntry", back_populates="owner")
+    activity_logs = relationship("ActivityLog", back_populates="user")
 
-class Post(Base):
-    __tablename__ = "posts"
+class DataEntry(Base):
+    __tablename__ = "data_entries"
 
     id = Column(Integer, primary_key=True, index=True)
-    title = Column(String, nullable=False)
-    content = Column(String, nullable=False)
-    published = Column(Boolean, default=True)
-    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    string_field1 = Column(String, nullable=False)
+    string_field2 = Column(String, nullable=False)
+    string_field3 = Column(String, nullable=False)
+    int_field1 = Column(Integer, nullable=False)
+    int_field2 = Column(Integer, nullable=False)
+    int_field3 = Column(Integer, nullable=False)
+    int_field4 = Column(Integer, nullable=False)
+    int_field5 = Column(Integer, nullable=False)
+    int_field6 = Column(Integer, nullable=False)
+    int_field7 = Column(Integer, nullable=False)
+    int_field8 = Column(Integer, nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"))
 
-    owner = relationship("User", back_populates="posts")
+    owner = relationship("User", back_populates="data_entries")
+
+class ActivityLog(Base):
+    __tablename__ = "activity_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    action = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    user = relationship("User", back_populates="activity_logs")

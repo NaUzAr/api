@@ -1,72 +1,85 @@
 # app/auth.py
 
-from passlib.context import CryptContext
-from datetime import datetime, timedelta
-from jose import JWTError, jwt
-from sqlalchemy.orm import Session
+from typing import Optional
 from fastapi import Depends, HTTPException, status
-from . import models, schemas
-from .dependencies import get_db
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError, jwt
 from dotenv import load_dotenv
 import os
+from datetime import datetime, timedelta
+from .schemas import Token
+from .models import User
+from sqlalchemy.orm import Session
+from .dependencies import get_db
+from passlib.context import CryptContext
+import re  # Tambahkan ini
 
 load_dotenv()
 
-# Konfigurasi hashing password
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Static Bearer Token untuk login dan register
+STATIC_BEARER_TOKEN = os.getenv("STATIC_BEARER_TOKEN")
 
-# Konfigurasi JWT
+# JWT Configuration
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 30))
 
-# Fungsi untuk meng-hash password
-def get_password_hash(password):
-    return pwd_context.hash(password)
+security = HTTPBearer()
 
-# Fungsi untuk memverifikasi password
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# Fungsi untuk mengautentikasi pengguna
-def authenticate_user(db: Session, username: str, password: str):
-    user = db.query(models.User).filter(models.User.username == username).first()
+def verify_static_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    if credentials.credentials != STATIC_BEARER_TOKEN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Token tidak valid atau tidak diizinkan",
+        )
+    return credentials.credentials
+
+def authenticate_user(db: Session, identifier: str, password: str) -> Optional[User]:
+    """
+    Mengautentikasi pengguna berdasarkan identifier yang dapat berupa username atau email.
+    """
+    # Deteksi apakah identifier adalah email
+    if re.match(r'[^@]+@[^@]+\.[^@]+', identifier):
+        user = db.query(User).filter(User.email == identifier).first()
+    else:
+        user = db.query(User).filter(User.username == identifier).first()
+    
     if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
+        return None
+    if not pwd_context.verify(password, user.hashed_password):
+        return None
     return user
 
-# Fungsi untuk membuat access token
-def create_access_token(data: dict, expires_delta: timedelta = None):
+def create_access_token(data: dict, expires_delta: timedelta = None) -> str:
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
         expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "iat": datetime.utcnow()})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-# OAuth2 scheme
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# Fungsi untuk mendapatkan pengguna saat ini
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+def get_current_user(token: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Tidak dapat memvalidasi kredensial",
+        detail="Tidak dapat memverifikasi kredensial",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        payload = jwt.decode(token.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        identifier: str = payload.get("sub")
+        if identifier is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = db.query(models.User).filter(models.User.username == username).first()
+    # Deteksi apakah identifier adalah email
+    if re.match(r'[^@]+@[^@]+\.[^@]+', identifier):
+        user = db.query(User).filter(User.email == identifier).first()
+    else:
+        user = db.query(User).filter(User.username == identifier).first()
     if user is None:
         raise credentials_exception
     return user
